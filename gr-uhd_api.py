@@ -60,8 +60,8 @@ class tx(gr.top_block):
             self.usrp_tx.set_center_freq(center_freq, i)
 
     def begin_transmit(self, packets):
-        #self.blocks_vector_source = blocks.file_source(gr.sizeof_gr_complex*1, './files_req/OFDM_packet_upsample_x2_qpsk_v3.dat', True, 0, 0)
-        self.blocks_vector_source = blocks.vector_source_c(packets.tolist(), True, 1, [])
+        self.blocks_vector_source = blocks.file_source(gr.sizeof_gr_complex*1, './files_req/OFDM_packet_upsample_x2_qpsk_v3.dat', True, 0, 0)
+        #self.blocks_vector_source = blocks.vector_source_c(packets.tolist(), True, 1, [])
         self.connect((self.blocks_vector_source, 0), (self.usrp_tx, 0))
         return 1
     
@@ -133,15 +133,25 @@ class rx(gr.top_block):
         return 1
     
 def main_txrx(txUSRP=tx, rxUSRP = rx, options=None):
-    deviceDict_TX = {'id':'324190C', 'sample_rate': 5e6, 'center_freq':800e6,
+    deviceDict_TX = {'id':'31F3CC3', 'sample_rate': 20e6, 'center_freq':3.5e9,
+                  'rf_gain':1,'clock_mode':'internal', 'rf_channels': [0],
+                  'rf_port': 'TX/RX'
+                  }
+    deviceDict_RX = {'id':'31AC578', 'sample_rate': 20e6, 'center_freq':3.5e9,
+                  'rf_gain':.8,'clock_mode':'internal', 'rf_channels': [0],
+                  'rf_port': 'RX2',
+                  'sink_file':'xxx.dat'
+                  }
+    
+    """ deviceDict_TX = {'id':'325FF54', 'sample_rate': 10e6, 'center_freq':10e6,
                   'rf_gain':0.8,'clock_mode':'internal', 'rf_channels': [0],
                   'rf_port': 'AB'
                   }
-    deviceDict_RX = {'id':'324190C', 'sample_rate': 5e6, 'center_freq':800e6,
+    deviceDict_RX = {'id':'329BCBB', 'sample_rate': 10e6, 'center_freq':10e6,
                   'rf_gain':0.4,'clock_mode':'internal', 'rf_channels': [0],
                   'rf_port': 'AB',
-                  'sink_file':'C:\\Users\\osman\\OneDrive\\Documents\\Summer2024\\TS\\Week01\\xxx.dat'
-                  }
+                  'sink_file':'xxx.dat'
+                  } """
     up = 2
     generator_obj = signal_generator(No_SC=64, NoOFDMSymbols=10, ModOrder= 2, factor = up)
     detector_obj = symbol_detector(No_SC=64, NoOFDMSymbols=10, ModOrder= 2, factor = up)
@@ -179,11 +189,13 @@ def main_txrx(txUSRP=tx, rxUSRP = rx, options=None):
                 time.sleep(0.01)
                 rb.close_file()
                 received_data = np.fromfile('./rx_data.dat',dtype=np.complex64)
+                plt.plot(received_data.real)
+                plt.show()
             
                 rx_pad_zero = detector_obj.decimateSamples(received_data.reshape(1,-1),factor=up)
                 lts_corr, no_pkts,payload_start_indices = detector_obj.detectPeaks(rx_pad_zero)
                 output_samples, cfo_estimates = detector_obj.estimate_carrier_freq_offset(rx_pad_zero,payload_start_indices[2],1)
-                #print(f'New: Estimated LTS CFO : {cfo_estimates*(Fs/2)*1e-3} kHz')
+                print(f'New: Estimated LTS CFO : {cfo_estimates*(Fs/2)*1e-3} kHz')
 
                 Hest = detector_obj.estimate_channel(output_samples,payload_start_indices[0])
                 #plt.title(f'Number of packets: {len(payload_start_indices)}')
@@ -197,8 +209,8 @@ def main_txrx(txUSRP=tx, rxUSRP = rx, options=None):
                 #plt.title(f'Packet index: {payload_start_indices[2]}, BER: {ber}')
                 #plt.scatter(receivedSymbols.real,receivedSymbols.imag)
                 #plt.scatter(tx_syms.real,tx_syms.imag)
-                plt.xlim([-1,1])
-                plt.ylim([-1,1])
+                plt.xlim([-1.2,1.2])
+                plt.ylim([-1.2,1.2])
                 ''''''
 
 
@@ -211,4 +223,7 @@ def main_txrx(txUSRP=tx, rxUSRP = rx, options=None):
         plt.show()
 
 if __name__ == '__main__':
+    import os
+    os.system('sudo sysctl -w net.core.rmem_max=24912805')
+    os.system('sudo sysctl -w net.core.wmem_max=24912805')
     main_txrx()
